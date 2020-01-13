@@ -108,6 +108,20 @@ router.post('/putFaculty', (req, res) => {
   });
 });
 
+// add a university to faculty
+router.post('/putuniversityidtofaculty', (req, res) => {
+
+	const filter = { name: 'facul0' };
+	const update = { universities: "TESTNAME" };
+
+	console.log(Faculties)
+	console.log("ANd name = "+Faculties.name)
+	Faculties.findOneAndUpdate({name: 'facul0'}, { $set: { universities: 'bar'} }).then((updatedDoc) => {})
+	
+	console.log("SUBMITTED VALUE")	
+});
+
+
 // add a bachelor
 router.post('/putBachelor', (req, res) => {
   let data = new Bachelors();
