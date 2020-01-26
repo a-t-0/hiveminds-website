@@ -7,8 +7,10 @@ var facultyNames; // arr of faculty names
 var facultyId;
 var facultyIds; // arr of faculty ids 
 var universityName;
-var universitiesIdsOfFaculty; // arr of arr of universities that have this faculty
-var universityId;
+var universitiesIdsInFaculties; // arr of arr of universities that have this faculty
+var facultiesIdsInUniversities; // arr of arr of universities that have this faculty
+var universitiesId;
+var universitiesIds;
 /*
 Ensures the database is stored as ManyToMany to reduce the amount of
 searching, at the cost of a larger database.
@@ -25,47 +27,83 @@ module.exports = {
 	// for adding a faculty
 	Main: function (input,entryIndex,state) {
 		const { faculties } = state;
-		//alert("Incoming faculties="+faculties)
-		//alert("Incoming faculties -uni fold="+faculties.map((dat) => dat.universities))
+		const { universities } = state;
 		
-		//alert("Incoming faculties[1]="+faculties[1])
-		//alert("Faculties length = "+faculties.length)
-		//var facultiesOne = this.getSpecificArrElement(faculties,1)
-		//alert("Faculties[1].universities = "+this.getSpecificArrElement(faculties,1))
+		// store the ids in the documents in collections
 		this.facultyIds = this.pushIdsToArray(faculties);
+		this.universitiesIds = this.pushIdsToArray(universities);
+		
+		// store the names in the documents in collections
 		this.facultyNames = this.pushNamesToArray(faculties);
-		this.universitiesIdsOfFaculty = this.pushUniversitiesIdsOfFacultiesToArray(faculties);
-		//alert("faculty ids="+this.facultyNames)
-		//alert("2nd faculty at index 1="+this.facultyNames[1]);
+		this.universitiesNames = this.pushNamesToArray(universities);
 		
-		//alert("faculty exists in universities="+this.universitiesIdsOfFaculty)
-		//alert("2nd uni (at index 1) in which faculty exists:="+this.universitiesIdsOfFaculty[1])
-		
-	
-		//alert("name ="+facultiesOne.name+" universities = "+facultiesOne.universities)
-
-		//alert("Faclties[1]="+faculties.dat[1].name)
-		//alert("Incoming faculties[1] -name fold="+faculties[1].map((dat) => dat.name))
-		//alert("Incoming faculties[1] -uni fold="+faculties[1].map((dat) => dat.universities))
-		//alert("Incoming faculties[0] -uni fold="+faculties[0].map((dat) => dat.universities))
-		
-		//alert("Entire array of universities="+this.universitiesIdsOfFaculty)
-		//alert("First index = "+this.universitiesIdsOfFaculty[0])
-		//alert("Second index = "+this.universitiesIdsOfFaculty[1])
-		
+		this.universitiesIdsInFaculties = this.pushuniversitiesIdsInFacultiesToArray(faculties);
+		//this.universitiesIdsInFaculties = this.pushuniversitiesIdsInFacultiesToArray(faculties,"universities");
+		this.facultiesIdsInUniversities = this.pushCollAIdsOfCollBToArray(universities,"faculties");
 		this.facultyName = input;
 		this.facultyId = this.lookUpFacultyId(input,entryIndex,faculties);
 		this.universityName = this.lookUpMatchingingUniversity()
 		this.universityId = this.lookUpAccompanyingUniversityId(this.universityName,state);
-		this.addUniversityIdToFaculty(this.universityId, facultyName)
+		this.addUniversityIdToFaculty(this.universityId, this.facultyName)
+		this.addFacultyIdToUniversity(this.facultyId,this.universityName)
+	},
+	
+	// returns array of parent (collectionA) Id's of a document in collectionB.
+	getIdsCollAofCollB(collectionAName,collectionBName,documentBName,incomingState){
+		var collAContent = this.getCollection(collectionAName,incomingState);
+		var collBContent = this.getCollection(collectionBName,incomingState);
+		this.universitiesIdsInFaculties = this.pushCollAIdsOfCollBToArray(collBContent,collectionAName);
 		
+		// 0. get index of documentBName from collectionBContent
+		var collBIndex=this.getIndexDocument(collBContent,documentBName)
+		
+		// filter from all universityIds to only the one from the given documentBName
+		return this.universitiesIdsInFaculties[collBIndex];
+	},
+	
+	// Assumes all entries are unique. Returns index, at which documentName is found
+	// in collection, starting at 0.
+	getIndexDocument(collection,documentName){
+		var foldedCollection = collection.map((tempItem) => tempItem.name)
+		for (var i = 0; i < foldedCollection.length; i++) {
+			if (documentName === foldedCollection[i]) {
+				return i;
+			}
+		}
+		// TODO: Throw error: should always find document
+	},
+	
+	// Returns a collection from the state based on collectionName
+	getCollection(collectionName, incomingState){
+		switch(collectionName) {
+				case "universities":
+					const { universities } = incomingState;
+					return universities;
+					break;
+				case "faculties":
+					const { faculties } = incomingState;
+					return faculties;
+					break;
+				case "bachelors":
+					const { bachelors } = incomingState;
+					return bachelors;
+					break;
+				case "masters":
+					const { masters } = incomingState;
+					return masters;
+					break;
+				case "courses":
+					const { courses } = incomingState;
+					return courses;
+					break;
+		}
+		// TODO: Throw error: should always find collection
 	},
 	
 	// Finds the FacultyId based on the facultyName
 	lookUpFacultyId: function (input,entryIndex,faculties) {
 		var facultyId
 		var dat
-		//alert("MAP"+faculties.map((dat) => dat.name))
 		var facultyNames = faculties.map((dat) => dat.name)
 		var facultyIds = faculties.map((dat) => dat._id)
 		
@@ -94,47 +132,76 @@ module.exports = {
 		const { universities } = state;
 		//alert(JSON.stringify(universities))
 		var universityId = this.findIdOfCollection(universityName,universities);
-		
 		return universityId
 	},
 	
-	// Assumes the Entry is in collection, finds matching id
+	lookUpAccompanyingFacultiesId: function (facultiesName,state) {
+		const { faculties } = state;
+		//alert(JSON.stringify(universities))
+		var facultiesId = this.findIdOfCollection(facultiesName,faculties);
+		return facultiesId
+	},
+	
+	// Assumes the Entry is in collection (can be anything universites, faculties etc), finds matching id
 	findIdOfCollection(name,collection){
 		var i;
 		var foldedCollectionName = collection.map((dat) => dat.name)
 		var foldedCollectionId = collection.map((dat) => dat._id)
-		//alert("Finding uni id of name:"+name)
+		
 		for (i = foldedCollectionName.length-1; i>=0; i--) {
-			//alert("uni:"+foldedCollectionName[i]+" target="+name)
 			if (foldedCollectionName[i] === name){
-				//alert("found input="+name+" at index:"+i)
 				return  foldedCollectionId[i];
 			}
 		}
 		// TODO: Throw error, should always find name(and id)
 	},
 	
-	// adds the universityId to the faculty document in the Db
 	
+	// adds the universityId to the faculty document in the Db
 	addUniversityIdToFaculty: function(universityId,facultyName) {
+		// 0. get the index at which the facultyName is located in the collection "faculties"
 		var facultyIndex = this.getFacultyIndex(facultyName);
-		// 0. get the list of universityId's
-		//this.universitiesIdsOfFaculty[facultyIndex]
-		// 1. Add the current universityId to the list
-		this.universitiesIdsOfFaculty[facultyIndex] = this.addNewUniversityId(this.universitiesIdsOfFaculty[facultyIndex],universityId);
-		// 2. Store the new list of universityId's
-		alert("The new list = "+this.universitiesIdsOfFaculty[facultyIndex])
-		//putDataToDB = (message,collectionName) => {
-		//this.putDataToDB(this.universitiesIdsOfFaculty[facultyIndex])
-		//PutUniversitiesToFacultiesputDataToDB => {
-		//PutUniversitiesToFacultiesputDataToDB = (message) => {
-		//PutUniversitiesToFacultiesputDataToDB(this.universitiesIdsOfFaculty[facultyIndex])
-		//this.PutUniversitiesToFacultiesputDataToDB();
-		var tempString = "Inserted"
-		//alert("The new list of IDS =")
-		//axios.post('http://localhost:3001/api/putUniversityIdToFaculty', {universityArray: this.universitiesIdsOfFaculty[facultyIndex]});
-		axios.post('http://localhost:3001/api/putUniversityIdToFaculty', {name: tempString});
-		//this.axios.post('http://localhost:3001/api/putUniversityIdToFaculty', {universityArray: this.universitiesIdsOfFaculty[facultyIndex]});
+		
+		// 1. get the list of universityId's
+		var universitiesIdsInFaculty = this.universitiesIdsInFaculties[facultyIndex]
+		
+		// 2. Add the current universityId to the list if it isn't already in
+		this.universitiesIdsInFaculties[facultyIndex] = this.addNewUniversityIdToOldArr(universitiesIdsInFaculty,universityId);
+		
+		// 3. create body of push message
+		var body = {
+					facultiesName: facultyName,
+					universitiesIds: this.universitiesIdsInFaculties[facultyIndex],
+				  }
+				  
+		// 4. push message into MongoDB (to update the faculties document with name facultyName
+		axios.post('http://localhost:3001/api/putUniversityIdToFaculty', body);
+	},
+	
+	
+	// adds the facultyId to the university document in the Db
+	addFacultyIdToUniversity: function(facultiesId,universitiesName) {
+		alert("Incoming facultiesId="+facultiesId+" it will be added to the university:"+universitiesName)
+		// 0. get the index at which the UNIVERSITYName is located in the collection "universities"
+		var universitiesIndex = this.getUniversitiesIndex(universitiesName);
+		
+		// 1. get the list of universitiesId's
+		var facultiesIdsInUniversities = this.facultiesIdsInUniversities[universitiesIndex]
+		alert("The currentList of faculties in university:"+universitiesName+" is:"+facultiesIdsInUniversities)
+		
+		// 2. Add the current universityId to the list if it isn't already in
+		this.facultiesIdsInUniversities[universitiesIndex] = this.addNewUniversityIdToOldArr(facultiesIdsInUniversities,facultiesId); // TODO: Check if general
+		alert("Hence the new list = "+this.facultiesIdsInUniversities[universitiesIndex])
+		
+		// 3. create body of push message
+		var body = {
+					universitiesName: universitiesName,
+					facultiesIds: this.facultiesIdsInUniversities[universitiesIndex],
+				  }
+				  
+		alert("Pushing:"+body)
+		// 4. push message into MongoDB (to update the faculties document with name universitiesName
+		axios.post('http://localhost:3001/api/putFacultyIdToUniversity', body);
 	},
 
 	getFacultyIndex: function(facultyName) {
@@ -146,20 +213,39 @@ module.exports = {
 		//TODO: throw error
 	},
 	
-	addNewUniversityId: function(oldUniversityIds,universityId) {
+	// get index of name of university in universities collection
+	getUniversitiesIndex: function(universityName) {
+		for (var i = 0; i < this.universitiesNames.length; i++) {
+			if (this.universitiesNames[i] == universityName) {
+				return i;
+			}
+		} 
+		//TODO: throw error
+	},
+	
+	// Adds the universityId to the list of UniversityIds if 
+	// it isnt already in. Creates new array if universitiesIds were empty
+	addNewUniversityIdToOldArr: function(oldUniversityIds,universityId) {
+		alert("oldUniversityIds="+oldUniversityIds+"new uni Id="+universityId)
 		if (oldUniversityIds == undefined){
 			var newUniversityIds = [];	
 		} else {
-			var newUniversityIds = oldUniversityIds;
+			if (Array.isArray(oldUniversityIds)) {
+				alert("oldUniversityIds is an array")
+				var newUniversityIds = oldUniversityIds;
+			} else {
+				alert("oldUniversityIds was NOT an array")
+				var newUniversityIds = [oldUniversityIds];
+			}
 		}
-		newUniversityIds.push(universityId)
-		return newUniversityIds;
+		if (newUniversityIds.includes(universityId)) {
+			return undefined;
+		} else {
+			newUniversityIds.push(universityId)
+			return newUniversityIds;
+		}
 	},
 	
-	// adds the facultyId to the university document in the Db
-	addFacultyIdToUniversity: function(facultyId,universityName) {
-		
-	},
 	
 	// generalised method to add an id of idCollection (e.g. faculties)
 	// to a collection (e.g. Universities)
@@ -179,7 +265,6 @@ module.exports = {
 		return found[index];
 	},
 	
-	
 	// Push the id's of the faculties to a separate array
 	pushIdsToArray(faculties){
 		var facultyIds = faculties.map(function (temp_item) {
@@ -198,11 +283,92 @@ module.exports = {
 		
 	// Push university arrays of a faculty to an array
 	// TODO: determine what happends if they are null/void
-	pushUniversitiesIdsOfFacultiesToArray(faculties){
-		var universitiesIdsOfFaculty = faculties.map(function (temp_item) {
+	// TODO: Switch to generalised method pushCollAIdsOfCollBToArray
+	pushuniversitiesIdsInFacultiesToArray(faculties){
+		var universitiesIdsInFaculties = faculties.map(function (temp_item) {
 			return temp_item.universities
 		});
-		return universitiesIdsOfFaculty;
+		return universitiesIdsInFaculties;
 	},
 	
+	// return the ids of collectionA that are in ALL documents in collectionB.
+	pushCollAIdsOfCollBToArray(collectionBContent,collectionAName){
+		var collAIdsOfcollB = collectionBContent.map(function (tempItem) {
+			switch(collectionAName) {
+				case "universities":
+					return tempItem.universities;
+					break;
+				case "faculties":
+					return tempItem.faculties;
+					break;
+				case "bachelors":
+					return tempItem.bachelors;
+					break;
+				case "masters":
+					return tempItem.masters;
+					break;
+				case "courses":
+					return tempItem.courses;
+					break;
+			}	
+			//return this.getCollectionFold(collectionBName,temp_item)
+		});
+		return collAIdsOfcollB;
+	},
+	
+	// Returns array of the Ids in a collection in the
+	// current dropdownbox/state
+	getArrOfCurrentIds(collectionName,incomingState){
+		switch(collectionName) {
+				case "universities":
+					const { universities } = incomingState;
+					return this.getListOfIdsFromCollection(universities);
+					break;
+				case "faculties":
+					const { faculties } = incomingState;
+					return this.getListOfIdsFromCollection(faculties)
+					break;
+				case "bachelors":
+					const { bachelors } = incomingState;
+					return this.getListOfIdsFromCollection(bachelors)
+					break;
+				case "masters":
+					const { masters } = incomingState;
+					return this.getListOfIdsFromCollection(masters)
+					break;
+				case "courses":
+					const { courses } = incomingState;
+					return this.getListOfIdsFromCollection(courses)
+					break;
+		}
+	},
+	
+	//returns an array ids of the any collection
+	getListOfIdsFromCollection(collection){
+		var collectionIds = collection.map(function (temp_item) {
+			return temp_item._id
+		});
+		return collectionIds;
+	},
+	
+	// Duplicate method of pushCollAIdsOfCollBToArray
+	getCollectionFold(collectionName, tempItem){
+		switch(collectionName) {
+				case "universities":
+					return tempItem.universities;
+					break;
+				case "faculties":
+					return tempItem.faculties;
+					break;
+				case "bachelors":
+					return tempItem.bachelors;
+					break;
+				case "masters":
+					return tempItem.masters;
+					break;
+				case "courses":
+					return tempItem.courses;
+					break;
+		}
+	},
 };

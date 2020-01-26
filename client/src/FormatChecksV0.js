@@ -1,15 +1,10 @@
+var ManyToManyDbAddFaculty = require('./ManyToManyDbAddFaculty');
+const axios = require("axios");
+//var ModifyDropdowns = require('./ModifyDropdownsV0');
 /*
 Performs checks on the validity of the input to the database.
 */
-module.exports = {
-  func1: function () {
-    // func1 impl
-	console.log(5 + 6);
-  },
-  func2: function () {
-    // func2 impl
-	alert("hello world")
-  },
+module.exports = { 
 	// Main method of class that coordinates the checks that are executed.
 	correctInputFomat: function (message,collectionName,state,ModifyDropdowns){
 		if (!this.isTooLong(message)){
@@ -35,7 +30,15 @@ module.exports = {
 
 		// check whether the message is not already in the array.		
 		// TODO: Include collectionName to ManyToManyMain
-		if (!this.isNewEntryInDb(message,state)){return false;}
+		if (!this.isNewEntryInDb(message,collectionName,state)){
+			
+			// check if a new parent (combination) is being added
+			// eg. if faculty mechanical eng. is added for TU Delft, and already present in TU/e)
+			this.allowDuplicateEntries(message,collectionName,state,ModifyDropdowns)
+			
+			// disable adding duplicate entry
+			return false
+		;}
 		
 		// Verify whether user selected correct university
 		if (collectionName !="universities"){
@@ -43,6 +46,101 @@ module.exports = {
 			if (!this.askIfSelectedRightDropdowns(question)){return false;}
 		}
 		return true;
+	},
+
+	// Checks if the entry is a new combination even though already exists
+	// E.g mechanical engineering faculty at tue and tudelft
+	// collectionName = universities or faculties, not aerospace eng. etc.
+	allowDuplicateEntries(facultiesName,collectionName,state,ModifyDropdowns){
+		
+		//1.e.3.5.1 Get the current universityName of the dropdown box.
+		var parentCollection = this.getParentCollection(collectionName)
+		if (parentCollection != undefined) {
+			var uniName = ModifyDropdowns.getSelectedDropdownValues(parentCollection)
+			
+			//1.e.3.5.2 get the id of the current universityname in the dropdown box.
+			var universitiesId = ManyToManyDbAddFaculty.lookUpAccompanyingUniversityId(uniName,state)
+			var facultiesId = ManyToManyDbAddFaculty.lookUpAccompanyingFacultiesId(facultiesName,state)
+			
+			this.addUniversitiesIdToFacultiesDuplicate(facultiesName,collectionName,state,ModifyDropdowns,uniName,universitiesId)
+			
+			this.addFacultiesDuplicateIdToUniversities(facultiesName,collectionName,state,ModifyDropdowns,uniName,facultiesId)
+		}
+	},
+
+
+	// adds the universities Id to the faculty document property: Universities
+	// to implement the one(faculty)-to-many(universities) relation part of the many-to-many.
+	addUniversitiesIdToFacultiesDuplicate(facultiesName,collectionName,state,ModifyDropdowns,uniName,universitiesId){
+		
+		//1.e.3.5.3 Get the universitiesIds that are already in the faculty
+		var universitiesIds = ManyToManyDbAddFaculty.getIdsCollAofCollB("universities","faculties",facultiesName,state)
+		
+		
+		//1.e.3.5.4 Check whether it is in there.
+		var isNewCombo = (!universitiesIds.includes(universitiesId))
+		if (isNewCombo){
+			
+			//1.e.3.5.4.b if no: don't add a new entry to the faculty, but just add the universityId to the faculty.
+			var newParentIds = ManyToManyDbAddFaculty.addNewUniversityIdToOldArr(universitiesIds,universitiesId);
+			var body = {
+				facultiesName: facultiesName,
+				universitiesIds: newParentIds
+			  }
+			axios.post('http://localhost:3001/api/putUniversityIdToFaculty', body);
+			alert("New combo posted")
+		} else {
+			//1.e.3.5.4.a if yes: terminate addition procedure and tell user it is already in.
+			alert("Combo already exists please select the university and then the faculty.")
+		}
+	},
+
+	// adds the universities Id to the faculty document property: Universities
+	// to implement the one(faculty)-to-many(universities) relation "other"(
+	// (see addUniversitiesIdToFacultiesDuplicate) part of the many-to-many.)
+	addFacultiesDuplicateIdToUniversities(facultiesName,collectionName,state,ModifyDropdowns,uniName,facultiesId){
+		
+		//1.e.3.5.3 Get the facultiesIds that are already in the UNIVERSITY
+		var facultiesIds = ManyToManyDbAddFaculty.getIdsCollAofCollB("faculties","universities",uniName,state)
+		
+		//1.e.3.5.4 Check whether it is in there.
+		var isNewCombo = (!facultiesIds.includes(facultiesId))
+		if (isNewCombo){
+			
+			//1.e.3.5.4.b if no: don't add a new entry to the faculty, but just add the universityId to the faculty.
+			var newParentIds = ManyToManyDbAddFaculty.addNewUniversityIdToOldArr(facultiesIds,facultiesId);
+			var body = {
+				universitiesName: uniName,
+				facultiesIds: newParentIds
+			  }
+			axios.post('http://localhost:3001/api/putFacultyIdToUniversity', body);
+			alert("New combo posted")
+		} else {
+			//1.e.3.5.4.a if yes: terminate addition procedure and tell user it is already in.
+			alert("Combo already exists please select the university and then the faculty.")
+		}
+	
+	},
+
+	// gets the parent collection(s) to check if it is a new entry combination
+	getParentCollection(collectionName){
+		switch(collectionName) {
+				case "universities":
+					return false
+					break;
+				case "faculties":
+					return "universities";
+					break;
+				case "bachelors":
+					// TODO implement
+					break;
+				case "masters":
+					// TODO implement
+					break;
+				case "courses":
+					// TODO implement
+					break;
+		}
 	},
 
 	// Check if string is longer than 200
@@ -107,6 +205,7 @@ module.exports = {
 		return true;
 	},
 	
+	// checks if string is in array *can replace with ".includes("
 	checkIfInArr: function(str,arr){
 		var i;
 		// only copy the non-undefined values from incoming array to newArr
@@ -218,5 +317,6 @@ module.exports = {
 			//alert(e.options[e.selectedIndex].value)
 			return e.options[e.selectedIndex].value;
 		}
-	}
+	},
+
 };

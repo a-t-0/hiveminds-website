@@ -6,6 +6,17 @@
 *.user
 *.userosscache
 *.sln.docstates
+*.json
+*.json
+*.config
+
+# backend
+backend/package.json
+backend/package-lock.json
+
+# client
+client/package-lock.json
+client/package.json
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -217,3 +228,6 @@ FakesAssemblies/
 _Pvt_Extensions
 
 .env
+
+
+*.bat

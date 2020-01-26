@@ -108,19 +108,25 @@ router.post('/putFaculty', (req, res) => {
   });
 });
 
-// add a university to faculty
-router.post('/putuniversityidtofaculty', (req, res) => {
-
-	const filter = { name: 'facul0' };
-	const update = { universities: "TESTNAME" };
-
-	console.log(Faculties)
-	console.log("ANd name = "+Faculties.name)
-	Faculties.findOneAndUpdate({name: 'facul0'}, { $set: { universities: 'bar'} }).then((updatedDoc) => {})
+// add a university to faculty document
+router.post('/putUniversityIdToFaculty', (req, res) => {	
+	// log to server what is added
+	console.log("universitiesIds="+req.body.universitiesIds)
+	console.log("facultiesName="+req.body.facultiesName)
 	
-	console.log("SUBMITTED VALUE")	
+	// push entries into MongoDB
+	Faculties.findOneAndUpdate({name: req.body.facultiesName}, { $set: { universities: req.body.universitiesIds} }).then((updatedDoc) => {})
 });
 
+// add a faculty to university document
+router.post('/putFacultyIdToUniversity', (req, res) => {	
+	// log to server what is added
+	console.log("facultiesIds="+req.body.facultiesIds)
+	console.log("universitiesName="+req.body.universitiesName)
+	
+	// push entries into MongoDB
+	Universities.findOneAndUpdate({name: req.body.universitiesName}, { $set: { faculties: req.body.facultiesIds} }).then((updatedDoc) => {})
+});
 
 // add a bachelor
 router.post('/putBachelor', (req, res) => {
